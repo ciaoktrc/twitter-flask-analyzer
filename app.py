@@ -22,7 +22,7 @@ def get_user_id(username, headers):
     response.raise_for_status()
     return response.json()['data']['id']
 
-def get_latest_tweets(user_id, headers, max_results=50):
+def get_latest_tweets(user_id, headers, max_results=10):
     url = f"https://api.twitter.com/2/users/{user_id}/tweets"
     params = {
         "max_results": max_results,
