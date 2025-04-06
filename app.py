@@ -22,13 +22,19 @@ def get_user_id(username, headers):
     response.raise_for_status()
     return response.json()['data']['id']
 
-def get_latest_tweets(user_id, headers, max_results=10):
+def get_latest_tweets(user_id, headers, max_results=5):
     url = f"https://api.twitter.com/2/users/{user_id}/tweets"
     params = {
         "max_results": max_results,
         "tweet.fields": "created_at,text"
     }
     response = requests.get(url, headers=headers, params=params)
+
+    # API制限チェック
+    remaining = int(response.headers.get("x-rate-limit-remaining", -1))
+    if remaining >= 0 and remaining < 5:
+        raise Exception("Twitter APIのリクエスト上限が近づいています。しばらく時間を置いて再度お試しください。")
+
     response.raise_for_status()
     tweets = response.json().get('data', [])
     return [tweet["text"] for tweet in tweets]
@@ -37,12 +43,14 @@ def analyze_tweets(tweets):
     classifier = get_classifier()
     results = []
     total_score = 0
+    scores = []
     for tweet in tweets:
         output = classifier(tweet)[0]
         score = output['score'] if output['label'] == 'TOXIC' else 1 - output['score']
+        scores.append(score)
         total_score += score
     average_score = total_score / len(tweets) if tweets else 0.0
-    return average_score
+    return average_score, scores
 
 def score_to_rgb(score):
     r = int(score * 255)
@@ -57,14 +65,13 @@ def index():
         headers = create_headers(BEARER_TOKEN)
         try:
             user_id = get_user_id(username, headers)
-            tweets = get_latest_tweets(user_id, headers)
-            average_score = analyze_tweets(tweets)
+            tweets = get_latest_tweets(user_id, headers, max_results=5)
+            average_score, scores = analyze_tweets(tweets)
             background_color = score_to_rgb(average_score)
-            return render_template("result.html", username=username, score=average_score, color=background_color)
+            return render_template("result.html", username=username, score=average_score, color=background_color, scores=scores)
         except Exception as e:
             return f"エラーが発生しました: {e}"
     return render_template("form.html")
 
 if __name__ == "__main__":
-    # ローカル実行用（Renderでは使わないけど、開発では必要）
-    app.run(host="0.0.0.0", port=10000, debug=False)
+    app.run(host='0.0.0.0', port=10000, debug=False)

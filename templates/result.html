@@ -1,22 +1,59 @@
 <!DOCTYPE html>
-<html>
+<html lang="ja">
 <head>
-    <meta charset="UTF-8">
-    <title>結果 - {{ username }}</title>
-    <style>
-        body {
-            background-color: {{ color }};
-            color: #333;
-            font-family: sans-serif;
-            text-align: center;
-            padding: 3rem;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <title>直近5件のあなたの色相</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      background-color: {{ color }};
+      color: #333;
+      text-align: center;
+      padding: 2em;
+    }
+    h1 {
+      font-size: 2em;
+      margin-bottom: 1em;
+    }
+    .bar-container {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      margin-top: 2em;
+    }
+    .bar {
+      width: 50px;
+      height: 200px;
+      position: relative;
+      background: linear-gradient(to top, rgb(255, 80, 120), rgb(100, 255, 150));
+      border-radius: 10px;
+    }
+    .dot {
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 16px;
+      height: 16px;
+      background-color: black;
+      border-radius: 50%;
+    }
+    .score-label {
+      margin-top: 0.5em;
+      font-size: 0.9em;
+    }
+  </style>
 </head>
 <body>
-    <h1>{{ username }} の感情スコア</h1>
-    <p>平均スコア: <strong>{{ "%.2f"|format(score) }}</strong></p>
-    <p>※ スコアが高いほど攻撃的です。背景色で表示しています。</p>
-    <a href="/">← 戻る</a>
+  <h1>直近5件のあなたの色相</h1>
+  <p>Twitterアカウント「@{{ username }}」の投稿を分析しました。</p>
+  <div class="bar-container">
+    {% for s in scores %}
+      <div class="bar">
+        <div class="dot" style="bottom: {{ s * 100 }}%"></div>
+      </div>
+    {% endfor %}
+  </div>
+  <p class="score-label">スコアが高いほど「攻撃的」、低いほど「穏やか」です。</p>
+  <p>平均スコア：{{ '%.2f'|format(score) }}</p>
 </body>
 </html>
