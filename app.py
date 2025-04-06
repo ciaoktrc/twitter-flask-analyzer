@@ -1,12 +1,14 @@
 from flask import Flask, render_template, request
+import os
 import requests
 from transformers import pipeline
 
-app = Flask(__name__)
+# 🔐 環境変数からBearer Tokenを読み込み
+BEARER_TOKEN = os.getenv("BEARER_TOKEN")
 
-# あなたのBearer Tokenをここに貼り付けてください
-BEARER_TOKEN = "AAAAAAAAAAAAAAAAAAAAAMOw0QEAAAAAdmkZOCcumsK0dDbZjUhOZfNHzag%3DhA9C9v073jWds5rFfyU5DJok0YSGiXOPQmxEWhHDqpa6EWyb52"
+# 🤖 攻撃性を判定するAIモデルを読み込み
 classifier = pipeline("text-classification", model="unitary/toxic-bert")
+
 
 def create_headers(token):
     return {"Authorization": f"Bearer {token}"}
