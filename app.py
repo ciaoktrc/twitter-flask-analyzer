@@ -2,13 +2,16 @@ from flask import Flask, render_template, request
 import os
 import requests
 from transformers import pipeline
+from functools import lru_cache
 
-# 🔐 環境変数からBearer Tokenを読み込み
+app = Flask(__name__)
+
+# 環境変数からTwitterのBearer Tokenを取得
 BEARER_TOKEN = os.getenv("BEARER_TOKEN")
 
-# 🤖 攻撃性を判定するAIモデルを読み込み
-classifier = pipeline("text-classification", model="unitary/toxic-bert")
-
+@lru_cache(maxsize=1)
+def get_classifier():
+    return pipeline("text-classification", model="unitary/toxic-bert")
 
 def create_headers(token):
     return {"Authorization": f"Bearer {token}"}
@@ -31,6 +34,7 @@ def get_latest_tweets(user_id, headers, max_results=50):
     return [tweet["text"] for tweet in tweets]
 
 def analyze_tweets(tweets):
+    classifier = get_classifier()
     results = []
     total_score = 0
     for tweet in tweets:
