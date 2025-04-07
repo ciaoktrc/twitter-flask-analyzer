@@ -4,56 +4,89 @@
   <meta charset="UTF-8">
   <title>直近5件のあなたの色相</title>
   <style>
+    :root {
+      --toxic-color: rgb(255, 80, 120);   /* 攻撃的（下側） */
+      --calm-color: rgb(100, 255, 150);   /* 穏やか（上側） */
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+    }
+
     body {
       font-family: sans-serif;
-      background-color: {{ color }};
+      background: linear-gradient(to bottom, var(--calm-color), var(--toxic-color));
       color: #333;
       text-align: center;
       padding: 2em;
+      box-sizing: border-box;
+      position: relative;
     }
+
     h1 {
       font-size: 2em;
       margin-bottom: 1em;
     }
+
+    .info {
+      max-width: 600px;
+      margin: 0 auto;
+    }
+
     .bar-container {
       display: flex;
+      flex-wrap: wrap;
       justify-content: center;
-      gap: 10px;
+      gap: 16px;
       margin-top: 2em;
+      width: 100%;
+      max-width: 600px;
     }
+
     .bar {
-      width: 50px;
+      flex: 1 1 50px;
       height: 200px;
       position: relative;
-      background: linear-gradient(to top, rgb(255, 80, 120), rgb(100, 255, 150));
+      background: #ffffff88;
       border-radius: 10px;
+      min-width: 50px;
     }
-    .dot {
-      position: absolute;
+
+    .dot-global {
+      position: fixed;
       left: 50%;
       transform: translateX(-50%);
-      width: 16px;
-      height: 16px;
+      width: 20px;
+      height: 20px;
       background-color: black;
       border-radius: 50%;
+      z-index: 999;
     }
+
     .score-label {
-      margin-top: 0.5em;
-      font-size: 0.9em;
+      margin-top: 1em;
+      font-size: 0.95em;
     }
   </style>
 </head>
 <body>
   <h1>直近5件のあなたの色相</h1>
-  <p>Twitterアカウント「@{{ username }}」の投稿を分析しました。</p>
-  <div class="bar-container">
-    {% for s in scores %}
-      <div class="bar">
-        <div class="dot" style="bottom: {{ s * 100 }}%"></div>
-      </div>
-    {% endfor %}
+  <div class="info">
+    <p>Twitterアカウント「@{{ username }}」の投稿を分析しました。</p>
+    <div class="bar-container">
+      {% for s in scores %}
+        <div class="bar">
+          <div class="dot" style="bottom: {{ s * 100 }}%"></div>
+        </div>
+      {% endfor %}
+    </div>
+    <p class="score-label">● の位置が投稿の「トーン」を表しています。上＝穏やか、下＝攻撃的。</p>
+    <p>平均スコア：{{ '%.2f'|format(score) }}</p>
   </div>
-  <p class="score-label">スコアが高いほど「攻撃的」、低いほど「穏やか」です。</p>
-  <p>平均スコア：{{ '%.2f'|format(score) }}</p>
+
+  <!-- 画面全体に対して平均スコアに応じたドットを配置 -->
+  <div class="dot-global" style="top: calc({{ (1 - score) * 100 }}vh);"></div>
 </body>
 </html>
