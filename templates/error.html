@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>エラーが発生しました</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      background-color: #ffe6e6;
+      color: #333;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      margin: 0;
+      text-align: center;
+      padding: 2em;
+    }
+
+    h1 {
+      font-size: 2em;
+      color: #c00;
+      margin-bottom: 0.5em;
+    }
+
+    p {
+      font-size: 1.1em;
+      margin: 1em 0;
+    }
+
+    a.button {
+      display: inline-block;
+      margin-top: 1.5em;
+      padding: 0.7em 1.5em;
+      background-color: #ff9999;
+      color: white;
+      text-decoration: none;
+      border-radius: 8px;
+      font-weight: bold;
+      transition: background-color 0.2s;
+    }
+
+    a.button:hover {
+      background-color: #ff6666;
+    }
+  </style>
+</head>
+<body>
+  <h1>エラーが発生しました</h1>
+  <p>{{ message }}</p>
+  <a href="/" class="button">← フォームに戻る</a>
+</body>
+</html>
