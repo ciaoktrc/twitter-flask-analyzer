@@ -1,77 +1,85 @@
-from flask import Flask, render_template, request
 import os
+import time
 import requests
+from flask import Flask, render_template, request
 from transformers import pipeline
-from functools import lru_cache
+from dotenv import load_dotenv
+
+load_dotenv()
 
 app = Flask(__name__)
 
-# 環境変数からTwitterのBearer Tokenを取得
 BEARER_TOKEN = os.getenv("BEARER_TOKEN")
+classifier = pipeline("text-classification", model="unitary/toxic-bert")
 
-@lru_cache(maxsize=1)
-def get_classifier():
-    return pipeline("text-classification", model="unitary/toxic-bert")
+headers = {
+    "Authorization": f"Bearer {BEARER_TOKEN}"
+}
 
-def create_headers(token):
-    return {"Authorization": f"Bearer {token}"}
-
-def get_user_id(username, headers):
-    url = f"https://api.twitter.com/2/users/by/username/{username}"
-    response = requests.get(url, headers=headers)
-    response.raise_for_status()
-    return response.json()['data']['id']
-
-def get_latest_tweets(user_id, headers, max_results=5):
-    url = f"https://api.twitter.com/2/users/{user_id}/tweets"
-    params = {
-        "max_results": max_results,
-        "tweet.fields": "created_at,text"
-    }
-    response = requests.get(url, headers=headers, params=params)
-
-    # API制限チェック
-    remaining = int(response.headers.get("x-rate-limit-remaining", -1))
-    if remaining >= 0 and remaining < 5:
-        raise Exception("Twitter APIのリクエスト上限が近づいています。しばらく時間を置いて再度お試しください。")
-
-    response.raise_for_status()
-    tweets = response.json().get('data', [])
-    return [tweet["text"] for tweet in tweets]
-
-def analyze_tweets(tweets):
-    classifier = get_classifier()
-    results = []
-    total_score = 0
-    scores = []
-    for tweet in tweets:
-        output = classifier(tweet)[0]
-        score = output['score'] if output['label'] == 'TOXIC' else 1 - output['score']
-        scores.append(score)
-        total_score += score
-    average_score = total_score / len(tweets) if tweets else 0.0
-    return average_score, scores
-
-def score_to_rgb(score):
-    r = int(score * 255)
-    g = int((1 - score) * 255)
-    b = int(100 + (1 - abs(score - 0.5)) * 100)
-    return f"rgb({r}, {g}, {b})"
+last_username = None
+last_access_time = 0
 
 @app.route("/", methods=["GET", "POST"])
 def index():
-    if request.method == "POST":
-        username = request.form["username"].strip()
-        headers = create_headers(BEARER_TOKEN)
-        try:
-            user_id = get_user_id(username, headers)
-            tweets = get_latest_tweets(user_id, headers, max_results=5)
-            average_score, scores = analyze_tweets(tweets)
-            background_color = score_to_rgb(average_score)
-            return render_template("result.html", username=username, score=average_score, color=background_color, scores=scores)
-        except Exception as e:
-            return f"エラーが発生しました: {e}"
-    return render_template("form.html")
+    global last_username, last_access_time
 
-if __name__ == "__main__":
-    app.run(host='0.0.0.0', port=10000, debug=False)
+    if request.method == "POST":
+        username = request.form["username"].strip().lower()
+
+        # 同一ユーザーの短期連続リクエスト防止（5秒以内）
+        current_time = time.time()
+        if username == last_username and current_time - last_access_time < 5:
+            return render_template("error.html", message="短時間に同じユーザーへの再アクセスはできません。少し時間を空けてください。")
+
+        # ユーザーIDを取得
+        user_url = f"https://api.twitter.com/2/users/by/username/{username}"
+        user_response = requests.get(user_url, headers=headers)
+
+        # Rate Limit エラーハンドリング（ユーザー取得）
+        if user_response.status_code == 429:
+            return render_template("error.html", message="Twitter APIの利用制限がかかっています。しばらく時間を空けてからお試しください。")
+
+        if user_response.status_code != 200:
+            return render_template("error.html", message="ユーザーが見つからないか、Twitterとの通信に問題が発生しました。")
+
+        user_id = user_response.json()["data"]["id"]
+
+
+        # スリープで間引き
+        time.sleep(2)
+
+        # ツイート取得
+        tweet_url = f"https://api.twitter.com/2/users/{user_id}/tweets"
+        params = {
+            "max_results": 5,
+            "tweet.fields": "created_at,text"
+        }
+        tweet_response = requests.get(tweet_url, headers=headers, params=params)
+
+        # Rate Limitの残数を確認
+        remaining = int(tweet_response.headers.get("x-rate-limit-remaining", "1"))
+        if remaining < 3:
+            return render_template("error.html", message="Twitter APIの利用制限が近づいています。しばらく時間を置いて再度お試しください。")
+
+        if tweet_response.status_code != 200:
+            return render_template("error.html", message=f"エラーが発生しました: {tweet_response.status_code}")
+
+        tweets = tweet_response.json().get("data", [])
+        if not tweets:
+            return render_template("error.html", message="投稿が見つかりませんでした。")
+
+        scores = []
+        for tweet in tweets:
+            text = tweet["text"]
+            result = classifier(text)[0]
+            score = result["score"] if result["label"] == "TOXIC" else 1 - result["score"]
+            scores.append(score)
+
+        average_score = sum(scores) / len(scores)
+
+        last_username = username
+        last_access_time = current_time
+
+        return render_template("result.html", scores=scores, score=average_score, username=username)
+
+    return render_template("form.html")
